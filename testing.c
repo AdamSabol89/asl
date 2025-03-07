@@ -38,8 +38,29 @@ void test_allocate_arena_alloc() {
   ArenaAllocatorDeinit(&arena);
 }
 
+void test_use_allocation() {
+  ArenaAllocator arena = ArenaAllocatorInit();
+  size_t allocation_size = 8; 
+
+  size_t* result_ptr = (size_t*) arena.vtable.alloc(&arena, allocation_size);
+  
+  *result_ptr = 12;
+  ASSERT(*result_ptr == 12);
+
+  allocation_size = 100000;
+
+  size_t* second_result_ptr = (size_t*) arena.vtable.alloc(&arena, allocation_size);
+  *second_result_ptr = 12;
+  ASSERT(*second_result_ptr == 12);
+
+  ArenaAllocatorDeinit(&arena);
+}
+
 int main() {
+
   init_page_size();
   test_init_arena_alloc();
   test_allocate_arena_alloc();
+  test_use_allocation();
+
 }

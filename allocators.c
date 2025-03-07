@@ -59,7 +59,7 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     header_root->block_capacity = new_size;
     header_root->block_len = min_size;
 
-    data_ptr += sizeof(header);
+    data_ptr = (char*)data_ptr + sizeof(header);
 
     arena->total_length += new_size;
     return data_ptr;
