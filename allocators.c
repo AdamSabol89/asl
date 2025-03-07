@@ -21,7 +21,7 @@ size_t round_to_pagesize(size_t size) {
 /// ARENA ALLOCARTOR
 void ArenaAllocatorFree(ArenaAllocator *arena) {}
 
-void *ArenaAllocatorAlloc(ArenaAllocator *arena, void* ptr, size_t size) {
+void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
   header *curr = arena->head;
 
   for (;;) {
