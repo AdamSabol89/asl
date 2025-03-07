@@ -50,7 +50,9 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
 
     size_t new_size = round_to_pagesize(proposed_size);
 
-    void *data_ptr = call_mmap(curr, new_size);
+    void* new_addr = (char*)curr + curr->block_capacity;
+
+    void *data_ptr = call_mmap(new_addr, new_size);
     header *header_root = (header *)data_ptr;
 
     curr->next = header_root;
