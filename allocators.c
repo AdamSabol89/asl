@@ -24,60 +24,51 @@ size_t round_to_pagesize(size_t size) {
   return (size + pagesize - 1) & ~(pagesize - 1);
 }
 
-/// ARENA ALLOCARTOR
-// TODO: need to settle on/fix this api. i think these should return
-// ALLOCATION_ERRORS and pass in a pointer to a void_ptr
 void ArenaAllocatorFree(ArenaAllocator *arena) {}
 
 AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_t size) {
-  header *curr = arena->head;
+  header *curr;
+  curr = (arena->tail) ? arena->tail : arena->head;
+  size_t block_capacity = curr->block_capacity;
+  size_t block_len = curr->block_len;
 
-  for (;;) {
-    size_t block_capacity = curr->block_capacity;
-    size_t block_len = curr->block_len;
+  if (size <= block_capacity - block_len) {
+    void *blk_start = (char *)curr + curr->block_len;
 
-    if (size <= block_capacity - block_len) {
-      void *blk_start = (char *)curr + curr->block_len;
+    curr->block_len += size;
 
-      curr->block_len += size;
-
-      *data_ptr = blk_start;
-      return NIL;
-    }
-
-    if (curr->next) {
-      curr = curr->next;
-      continue;
-    }
-
-    // Max(block_len*2, size)
-    size_t min_size = size + sizeof(header);
-    size_t proposed_size = (min_size > curr->block_capacity * 2)
-                               ? min_size
-                               : curr->block_capacity * 2;
-
-    size_t new_size = round_to_pagesize(proposed_size);
-
-    void *new_addr = (char *)curr + curr->block_capacity;
-
-    void* block_ptr;
-    AllocatorError err = call_mmap(new_addr, &block_ptr, new_size);
-    if (err != NIL){
-      return err;
-    }
-
-    header *header_root = (header *)block_ptr;
-
-    curr->next = header_root;
-    header_root->block_capacity = new_size;
-    header_root->block_len = min_size;
-
-    block_ptr = (char *)block_ptr + sizeof(header);
-
-    arena->ll_length += 1;
-    *data_ptr = block_ptr;
+    *data_ptr = blk_start;
     return NIL;
   }
+
+  size_t min_size = size + sizeof(header);
+  size_t proposed_size = (min_size > curr->block_capacity * 2)
+                             ? min_size
+                             : curr->block_capacity * 2;
+  size_t new_size = round_to_pagesize(proposed_size);
+  void *cont_addr = (char *)curr + curr->block_capacity;
+  void *new_block_ptr;
+
+  AllocatorError err = call_mmap(cont_addr, &new_block_ptr, new_size);
+  if (err != NIL) {
+    return err;
+  }
+  header *fresh_block = (header *)new_block_ptr;
+
+  curr->next = fresh_block;
+
+  fresh_block->block_capacity = new_size;
+  fresh_block->block_len = min_size;
+  fresh_block->prev = curr;
+
+  new_block_ptr = (char *)new_block_ptr + sizeof(header);
+
+  arena->tail = fresh_block;
+  arena->block_num += 1;
+
+  *data_ptr = new_block_ptr;
+
+  return NIL;
 }
 
 AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
@@ -96,12 +87,14 @@ AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
   arena->vtable.alloc = ArenaAllocatorAlloc;
 
   arena->head = header_root;
+  arena->tail = header_root;
 
   header_root->next = NULL;
   header_root->block_len = sizeof(header);
   header_root->block_capacity = default_page_size;
+  header_root->prev = NULL; 
 
-  arena->ll_length = 1;
+  arena->block_num = 1;
 
   return NIL;
 };
@@ -116,7 +109,7 @@ void ArenaAllocatorDeinit(ArenaAllocator *arena) {
     munmap(head, len);
     head = temp_head;
   }
-  arena->ll_length = 0;
+  arena->block_num = 0;
   arena->head = NULL;
 }
 

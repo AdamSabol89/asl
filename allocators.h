@@ -1,10 +1,11 @@
 #include <stdio.h>
+// TBD: maybe we dont do this.
 // ### API ### 
 // ArenaAllocator arena; 
-// ArenaAllocatorInit(&arena);
+// AllocatorErrror err = ArenaAllocatorInit(&arena);
 //
 // void* my_ptr;
-// arena.alloc(&arena, &my_ptr, 128);
+// err = arena.alloc(&arena, &my_ptr, 128);
 //
 // This is unfortunate but it is the "responsible" thing to do since an allocation can fail.
 // ###########
@@ -22,6 +23,7 @@ typedef struct header {
     size_t block_len;
     size_t block_capacity;
     struct header *next;
+    struct header *prev;
 } header;
 
 
@@ -33,6 +35,7 @@ typedef struct ArenaAllocator {
 
   size_t block_num;
   struct header* head;
+  struct header* tail;
 
   /* do we keep a tail and check?
   struct header* tail;
