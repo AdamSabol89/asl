@@ -28,7 +28,7 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     size_t block_capacity = curr->block_capacity;
     size_t block_len = curr->block_len;
 
-    if (size < block_capacity) {
+    if (size < block_capacity-block_len ) {
       void *blk_start = (char *)curr + curr->block_len;
 
       curr->block_len += size;
@@ -44,9 +44,9 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
 
     // Max(block_len*2, size)
     size_t min_size = size + sizeof(header);
-    size_t proposed_size = (min_size > curr->block_len * 2)
+    size_t proposed_size = (min_size > curr->block_capacity * 2)
                                ? min_size 
-                               : curr->block_len * 2;
+                               : curr->block_capacity * 2;
 
     size_t new_size = round_to_pagesize(proposed_size);
 
@@ -90,7 +90,7 @@ void ArenaAllocatorDeinit(ArenaAllocator *arena) {
   header *head = arena->head;
 
   while (head) {
-    size_t len = head->block_len + sizeof(header);
+    size_t len = head->block_capacity;
     header *temp_head = head->next;
 
     munmap(head, len);
