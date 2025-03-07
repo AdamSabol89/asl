@@ -19,12 +19,12 @@ typedef enum {
 
 } AllocatorError;
 
-typedef struct header {
+typedef struct arena_header {
     size_t block_len;
     size_t block_capacity;
-    struct header *next;
-    struct header *prev;
-} header;
+    struct arena_header *next;
+    struct arena_header *prev;
+} arena_header;
 
 
 typedef struct ArenaAllocator {
@@ -34,8 +34,8 @@ typedef struct ArenaAllocator {
   } vtable;
 
   size_t block_num;
-  struct header* head;
-  struct header* tail;
+  struct arena_header* head;
+  struct arena_header* tail;
 
   /* do we keep a tail and check?
   struct header* tail;
@@ -45,3 +45,5 @@ typedef struct ArenaAllocator {
 
 AllocatorError ArenaAllocatorInit(ArenaAllocator *);
 void ArenaAllocatorDeinit(ArenaAllocator *);
+
+

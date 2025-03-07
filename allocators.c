@@ -27,7 +27,7 @@ size_t round_to_pagesize(size_t size) {
 void ArenaAllocatorFree(ArenaAllocator *arena) {}
 
 AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_t size) {
-  header *curr;
+  arena_header *curr;
   curr = (arena->tail) ? arena->tail : arena->head;
   size_t block_capacity = curr->block_capacity;
   size_t block_len = curr->block_len;
@@ -41,7 +41,7 @@ AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_
     return NIL;
   }
 
-  size_t min_size = size + sizeof(header);
+  size_t min_size = size + sizeof(arena_header);
   size_t proposed_size = (min_size > curr->block_capacity * 2)
                              ? min_size
                              : curr->block_capacity * 2;
@@ -53,7 +53,7 @@ AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_
   if (err != NIL) {
     return err;
   }
-  header *fresh_block = (header *)new_block_ptr;
+  arena_header *fresh_block = (arena_header *)new_block_ptr;
 
   curr->next = fresh_block;
 
@@ -61,7 +61,7 @@ AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_
   fresh_block->block_len = min_size;
   fresh_block->prev = curr;
 
-  new_block_ptr = (char *)new_block_ptr + sizeof(header);
+  new_block_ptr = (char *)new_block_ptr + sizeof(arena_header);
 
   arena->tail = fresh_block;
   arena->block_num += 1;
@@ -81,7 +81,7 @@ AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
     return err;
   }
 
-  header *header_root = (header *)data_ptr;
+  arena_header *header_root = (arena_header *)data_ptr;
 
   arena->vtable.free = ArenaAllocatorFree;
   arena->vtable.alloc = ArenaAllocatorAlloc;
@@ -90,7 +90,7 @@ AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
   arena->tail = header_root;
 
   header_root->next = NULL;
-  header_root->block_len = sizeof(header);
+  header_root->block_len = sizeof(arena_header);
   header_root->block_capacity = default_page_size;
   header_root->prev = NULL; 
 
@@ -100,11 +100,11 @@ AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
 };
 
 void ArenaAllocatorDeinit(ArenaAllocator *arena) {
-  header *head = arena->head;
+  arena_header *head = arena->head;
 
   while (head) {
     size_t len = head->block_capacity;
-    header *temp_head = head->next;
+    arena_header *temp_head = head->next;
 
     munmap(head, len);
     head = temp_head;
