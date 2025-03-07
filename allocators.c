@@ -16,9 +16,9 @@ size_t round_to_pagesize(size_t size) {
   return (size + pagesize - 1) & ~(pagesize - 1);
 }
 
-///END HELPERS /// 
-
 /// ARENA ALLOCARTOR
+// TODO: need to settle on/fix this api. i think these should return ALLOCATION_ERRORS 
+// and pass in a pointer to a void_ptr
 void ArenaAllocatorFree(ArenaAllocator *arena) {}
 
 void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
@@ -29,12 +29,9 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     size_t block_len = curr->block_len;
 
     if (size < block_capacity) {
-      void *blk_start = (void *)curr;
-      blk_start += block_len;
+      void *blk_start = (char *)curr + curr->block_len;
 
       curr->block_len += size;
-      curr->block_capacity -= size;
-
       arena->total_length += size;
 
       return blk_start;
@@ -57,8 +54,8 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     header *header_root = (header *)data_ptr;
 
     curr->next = header_root;
-    header_root->block_capacity = new_size - min_size;
-    header_root->block_len = new_size - min_size;
+    header_root->block_capacity = new_size;
+    header_root->block_len = min_size;
 
     data_ptr += sizeof(header);
 
@@ -81,8 +78,8 @@ ArenaAllocator ArenaAllocatorInit() {
   arena_raw.head = header_root;
 
   header_root->next = NULL;
-  header_root->block_len =  default_page_size - sizeof(header);
-  header_root->block_capacity = header_root->block_len;
+  header_root->block_len = sizeof(header);
+  header_root->block_capacity = default_page_size;
 
   arena_raw.total_length = default_page_size;
 
