@@ -28,7 +28,7 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     size_t block_capacity = curr->block_capacity;
     size_t block_len = curr->block_len;
 
-    if (size < block_capacity-block_len ) {
+    if (size <= block_capacity-block_len ) {
       void *blk_start = (char *)curr + curr->block_len;
 
       curr->block_len += size;
