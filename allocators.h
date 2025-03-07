@@ -1,33 +1,44 @@
 #include <stdio.h>
-//awa
+// ### API ### 
+// ArenaAllocator arena; 
+// ArenaAllocatorInit(&arena);
+//
+// void* my_ptr;
+// arena.alloc(&arena, &my_ptr, 128);
+//
+// This is unfortunate but it is the "responsible" thing to do since an allocation can fail.
+// ###########
 
 typedef enum {
 
-  NO_ERROR,
+  NIL,
   NULL_PTR_INIT,
   OUT_OF_MEMORY,
-  RANDOM_ERROR1,
-  RANDOM_ERROR2
+  MMAP_ERROR,
 
 } AllocatorError;
 
-// 12 byte alignment??
 typedef struct header {
     size_t block_len;
     size_t block_capacity;
     struct header *next;
 } header;
 
+
 typedef struct ArenaAllocator {
   struct {
-    void *(*alloc)(struct ArenaAllocator*, size_t);
+    AllocatorError (*alloc)(struct ArenaAllocator*, void**, size_t);
     void (*free)(struct ArenaAllocator* );
   } vtable;
 
-  size_t total_length;
+  size_t block_num;
   struct header* head;
+
+  /* do we keep a tail and check?
+  struct header* tail;
+  */
 
 } ArenaAllocator;
 
-ArenaAllocator ArenaAllocatorInit();
+AllocatorError ArenaAllocatorInit(ArenaAllocator *);
 void ArenaAllocatorDeinit(ArenaAllocator *);

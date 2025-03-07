@@ -3,12 +3,20 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+/// HELPERS ///
 
-/// HELPERS /// 
-
-void *call_mmap(void *addr, size_t len) {
+AllocatorError call_mmap(void *addr, void **ptr, size_t len) {
   //@TODO: handle mmap errors
-  return mmap(addr, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+  void *mmap_result = mmap(addr, len, PROT_READ | PROT_WRITE,
+                           MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+  if (mmap_result == MAP_FAILED) {
+    return MMAP_ERROR;
+  }
+
+  *ptr = mmap_result;
+  return NIL;
 };
 
 size_t round_to_pagesize(size_t size) {
@@ -17,24 +25,24 @@ size_t round_to_pagesize(size_t size) {
 }
 
 /// ARENA ALLOCARTOR
-// TODO: need to settle on/fix this api. i think these should return ALLOCATION_ERRORS 
-// and pass in a pointer to a void_ptr
+// TODO: need to settle on/fix this api. i think these should return
+// ALLOCATION_ERRORS and pass in a pointer to a void_ptr
 void ArenaAllocatorFree(ArenaAllocator *arena) {}
 
-void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
+AllocatorError ArenaAllocatorAlloc(ArenaAllocator *arena, void** data_ptr, size_t size) {
   header *curr = arena->head;
 
   for (;;) {
     size_t block_capacity = curr->block_capacity;
     size_t block_len = curr->block_len;
 
-    if (size <= block_capacity-block_len ) {
+    if (size <= block_capacity - block_len) {
       void *blk_start = (char *)curr + curr->block_len;
 
       curr->block_len += size;
-      arena->total_length += size;
 
-      return blk_start;
+      *data_ptr = blk_start;
+      return NIL;
     }
 
     if (curr->next) {
@@ -45,47 +53,57 @@ void *ArenaAllocatorAlloc(ArenaAllocator *arena, size_t size) {
     // Max(block_len*2, size)
     size_t min_size = size + sizeof(header);
     size_t proposed_size = (min_size > curr->block_capacity * 2)
-                               ? min_size 
+                               ? min_size
                                : curr->block_capacity * 2;
 
     size_t new_size = round_to_pagesize(proposed_size);
 
-    void* new_addr = (char*)curr + curr->block_capacity;
+    void *new_addr = (char *)curr + curr->block_capacity;
 
-    void *data_ptr = call_mmap(new_addr, new_size);
-    header *header_root = (header *)data_ptr;
+    void* block_ptr;
+    AllocatorError err = call_mmap(new_addr, &block_ptr, new_size);
+    if (err != NIL){
+      return err;
+    }
+
+    header *header_root = (header *)block_ptr;
 
     curr->next = header_root;
     header_root->block_capacity = new_size;
     header_root->block_len = min_size;
 
-    data_ptr = (char*)data_ptr + sizeof(header);
+    block_ptr = (char *)block_ptr + sizeof(header);
 
-    arena->total_length += new_size;
-    return data_ptr;
+    arena->ll_length += 1;
+    *data_ptr = block_ptr;
+    return NIL;
   }
 }
 
-ArenaAllocator ArenaAllocatorInit() {
-  ArenaAllocator arena_raw;
-
+AllocatorError ArenaAllocatorInit(ArenaAllocator* arena) {
   size_t default_page_size = round_to_pagesize(1);
 
-  void *data_ptr = call_mmap(NULL, default_page_size);
+  void *data_ptr;
+  AllocatorError err = call_mmap(NULL, &data_ptr, default_page_size);
+
+  if (err != NIL){
+    return err;
+  }
+
   header *header_root = (header *)data_ptr;
 
-  arena_raw.vtable.free = ArenaAllocatorFree;
-  arena_raw.vtable.alloc = ArenaAllocatorAlloc;
+  arena->vtable.free = ArenaAllocatorFree;
+  arena->vtable.alloc = ArenaAllocatorAlloc;
 
-  arena_raw.head = header_root;
+  arena->head = header_root;
 
   header_root->next = NULL;
   header_root->block_len = sizeof(header);
   header_root->block_capacity = default_page_size;
 
-  arena_raw.total_length = default_page_size;
+  arena->ll_length = 1;
 
-  return arena_raw;
+  return NIL;
 };
 
 void ArenaAllocatorDeinit(ArenaAllocator *arena) {
@@ -98,8 +116,8 @@ void ArenaAllocatorDeinit(ArenaAllocator *arena) {
     munmap(head, len);
     head = temp_head;
   }
-    arena -> total_length = 0;
-    arena -> head = NULL;
+  arena->ll_length = 0;
+  arena->head = NULL;
 }
 
-/// END ARENA_ALLOCATOR 
+/// END ARENA_ALLOCATOR

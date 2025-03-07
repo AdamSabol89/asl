@@ -20,38 +20,66 @@ void init_page_size() {
 }
 
 void test_init_arena_alloc() {
-  ArenaAllocator arena = ArenaAllocatorInit();
+
+  ArenaAllocator arena;
+  AllocatorError err = ArenaAllocatorInit(&arena);
+
+  if (err != NIL){
+    printf("Unable to allocate arena, erro_code %u \n", err);
+  }
 
   printf("size of arena %zu \n", arena.head->block_len);
   arena.vtable.free(&arena);
 }
 
 void test_allocate_arena_alloc() {
-  ArenaAllocator arena = ArenaAllocatorInit();
+  ArenaAllocator arena;
+  AllocatorError err = ArenaAllocatorInit(&arena);
+
+  if (err != NIL){
+    printf("Unable to allocate arena, error_code %u \n", err);
+  }
 
   size_t allocation_size = 100000;
-  arena.vtable.alloc(&arena, allocation_size);
+  void* result;
+  arena.vtable.alloc(&arena, &result, allocation_size);
 
-  printf("size of arena %zu \n", arena.total_length);
+  printf("size of arena %zu \n", arena.block_num);
 
-  ASSERT(arena.total_length % PAGE_SIZE == 0);
+  ASSERT(arena.block_num == 2);
   ArenaAllocatorDeinit(&arena);
 }
 
 void test_use_allocation() {
-  ArenaAllocator arena = ArenaAllocatorInit();
-  size_t allocation_size = 8; 
+  ArenaAllocator arena; 
+  AllocatorError err;
 
-  size_t* result_ptr = (size_t*) arena.vtable.alloc(&arena, allocation_size);
-  
-  *result_ptr = 12;
-  ASSERT(*result_ptr == 12);
+  err = ArenaAllocatorInit(&arena);
+  if (err != NIL){
+    printf("Unable to allocate arena, error_code %u \n", err);
+  }
+
+  size_t allocation_size = 8; 
+  void* result_ptr;
+  err = arena.vtable.alloc(&arena, &result_ptr, allocation_size);
+  if (err != NIL){
+    printf("Unable to allocate arena, error_code %u \n", err);
+  }
+
+  size_t* uresult_ptr = (size_t*) result_ptr;
+  *uresult_ptr = 12;
+  ASSERT(*uresult_ptr == 12);
 
   allocation_size = 100000;
+  void* second_result_ptr;
+  err = arena.vtable.alloc(&arena, &second_result_ptr, allocation_size);
+  if (err != NIL){
+    printf("Unable to allocate arena, error_code %u \n", err);
+  }
 
-  size_t* second_result_ptr = (size_t*) arena.vtable.alloc(&arena, allocation_size);
-  *second_result_ptr = 12;
-  ASSERT(*second_result_ptr == 12);
+  size_t* usecond_result_ptr = (size_t*) second_result_ptr;
+  *usecond_result_ptr = 12;
+  ASSERT(*usecond_result_ptr == 12);
 
   ArenaAllocatorDeinit(&arena);
 }
